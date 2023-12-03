@@ -1,1 +1,140 @@
+var edit Bool = false
 
+fun loser(tf Bool) {
+  edit = tf
+}
+
+fun drawHint(text String, x Int16, y Int16) {
+	let measure = getTextAdvance(text)
+	let w = 6 * 2 + measure + 1
+	let h = 20u16
+
+	let color = new ByValue<Pixel32>()
+	color.ref.color = 0x57575757
+	drawRectangleOutline(color, x, y, w, h)
+	color.ref.color = 0xFFFFFFFFu32
+	drawRectangle(color, x + 1i16, y + 1i16, w - 2, h - 2)
+	color.ref.color = 0x57575757
+	drawAsciiText(text, x + 6, y + 5i16, color.ref)
+}
+
+fun shadow(x Int16, y Int16, darkness UInt8) {
+	var pixel = new ByValue<Pixel32>()
+	pixel.ref.color = 0
+	pixel.ref.rgba.ref.a = 0xFF - darkness
+	blendPixel(x, y, pixel.ref)
+}
+
+fun distance(x1 Int16, y1 Int16, x2 Int16, y2 Int16) Int32 {
+	return Math.round(Math.sqrt((x1 - x2) * (x1 - x2) + (y1 - y2) * (y1 - y2)))
+}
+
+fun drawShadowBox(x Int16, y Int16, w UInt16, h UInt16) {
+	let w = w as! Int16
+	let h = h as! Int16
+
+	for iy in 16i16 {
+		for ix in w {
+			shadow(x + ix, y - iy, 192u8 + iy * 4u8)
+			shadow(x + ix, y + iy + h, 192u8 + iy * 4u8)
+		}
+	}
+	for iy in h {
+		for ix in 16i16 {
+			shadow(x - ix, y + iy, 192u8 + ix * 4u8)
+			shadow(x + ix + w, y + iy, 192u8 + ix * 4u8)
+		}
+	}
+	for iy in 1...15 {
+		for ix in 1...15 {
+			let ix = ix as! Int16
+			let iy = iy as! Int16
+
+			let dist = 192 + distance(x, y, x - ix, y - iy) * 4
+			if dist > 255 {
+				continue
+			}
+			let dist = dist as! UInt8
+
+			shadow(x - ix, y - iy, dist)
+			shadow(x + ix + w - 1i16, y - iy, dist)
+			shadow(x + ix + w - 1i16, y - 1 + iy + h, dist)
+			shadow(x - ix, y - 1 + iy + h, dist)
+		}
+	}
+}
+
+fun drawWindowWidget(title String, x Int16, y Int16, w UInt16, h UInt16, active Bool,
+						 hover FrameHover, down Bool, icon Bitmap32) {
+	var shorterFrame Bool = false
+
+	var color = new ByValue<Pixel32>()
+
+	drawVibrancedRectangle(x + 1i16, y + 1i16, w - 1, 32, darkTheme)
+
+	if active {
+		if darkTheme {
+			color.ref.rgba.ref.r = color.ref.rgba.ref.g = color.ref.rgba.ref.b = 0xAAu8
+		} else {
+			color.ref.rgba.ref.r = color.ref.rgba.ref.g = color.ref.rgba.ref.b = 0x11u8
+		}
+	} else {
+		if darkTheme {
+			color.ref.rgba.ref.r = color.ref.rgba.ref.g = color.ref.rgba.ref.b = 0x88u8
+		} else {
+			color.ref.rgba.ref.r = color.ref.rgba.ref.g = color.ref.rgba.ref.b = 0x88u8
+		}
+	}
+
+	drawBitmap32WithAlpha(icon, x + 9i16, y + 8i16)
+
+	drawText(title, x + 31, y + 9i16 + 3i16, color.ref)
+
+	if active {
+		color.ref.color = 0x126099FF
+	} else {
+		color.ref.rgba.ref.r = color.ref.rgba.ref.g = color.ref.rgba.ref.b = 164u8
+	}
+	drawRectangleOutline(color, x, y, w, h)
+
+	color.ref.color = 0xFFFFB911u32
+
+	if hover == FrameHover.Min {
+		color.ref.rgba.ref.a = down ? 128u8 : 230u8 
+		drawRectangleWithAlpha(color.ref, x + w - (45 + 1) * 3 + 1i16, y + 1i16, 44, 29)
+		color.ref.color = 0xFF000000u32
+	}
+
+	let centeredMinimize = true
+	if centeredMinimize {
+		drawRectangle(color, x + w - (45 + 1) * 3 + 23 - 4i16, y + 15i16, 8, 1)
+	} else {
+		drawRectangle(color, x + w - (45 + 1) * 3 + 23 - 4i16, y + 19i16, 8, 1)
+	}
+
+	color.ref.color = 0xFF59B842u32
+
+	if hover == FrameHover.Max {
+		color.ref.rgba.ref.a = down ? 128u8 : 240u8
+		drawRectangleWithAlpha(color.ref, x + w - (45 + 1) * 2 + 1i16, y + 1i16, 44, 29)
+		color.ref.color = 0xFF000000u32
+	}
+
+	drawRectangle(color, x + w - (45 + 1) * 2 + 23 - 4i16, y + 14 - 4i16, 9, 1)
+	drawRectangle(color, x + w - (45 + 1) * 2 + 23 - 4i16, y + 14 + 5i16, 10, 1)
+	drawRectangle(color, x + w - (45 + 1) * 2 + 23 - 4i16, y + 14 - 4i16, 1, 9)
+	drawRectangle(color, x + w - (45 + 1) * 2 + 23 + 5i16, y + 14 - 4i16, 1, 9)
+
+	color.ref.color = 0xFFFF5557u32
+
+	if hover == FrameHover.Close {
+		color.ref.rgba.ref.a = down ? 128u8 : 240u8
+		drawRectangleWithAlpha(color.ref, x + w - (45 + 1) * 1 + 1i16, y + 1i16, 44, 29)
+		color.ref.color = 0xFF000000u32
+	}
+
+	line45smooth(color, x + w - (45 + 1) * 1 + 23 - 6i16, y + 10i16, 10i16, 1i16)
+	line45smooth(color, x + w - 18i16, y + 10i16, 10i16, -1i16)
+
+	drawShadowBox(x - 1i16, y - 1i16, w + 1, h + 1)
+}
